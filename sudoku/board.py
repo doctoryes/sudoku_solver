@@ -40,6 +40,7 @@ Notes:
     - Convert to needed encapsulated type just-in-time.
 """
 
+import os
 import unittest
 import csv
 from itertools import chain
@@ -75,22 +76,33 @@ class SudokuBoard(object):
         for i, one_block in enumerate(block_nums):
             self.blocks[i].populate(one_block)
 
-    def populate_from_file(self, filename):
+    def _populate_from_csvdata(self, csvdata):
+        """
+        Populate an entire Sudoku board from CSV data.
+        """
+        blocks = defaultdict(list)
+        for row_num, row in enumerate(csvdata):
+            base_block_num = (row_num / 3) * 3
+            blocks[base_block_num].extend(row[0:3])
+            blocks[base_block_num + 1].extend(row[3:6])
+            blocks[base_block_num + 2].extend(row[6:9])
+        for block_num in range(9):
+            self.blocks[block_num].populate(blocks[block_num])
+
+    def populate_from_csvfile(self, filename):
         """
         Populate an entire Sudoku board from a CSV file.
         The file contains nine lines - each row of the Sudoku board with numbers where present
         and blanks where no number is present, with numbers and blanks separated by commas.
         """
-        blocks = defaultdict(list)
         with open(filename, 'rb') as csvfile:
             rows = csv.reader(csvfile)
-            for row_num, row in enumerate(rows):
-                base_block_num = (row_num / 3) * 3
-                blocks[base_block_num].append(row[0:3])
-                blocks[base_block_num + 1].append(row[3:6])
-                blocks[base_block_num + 2].append(row[6:9])
-        for block_num in range(9):
-            self.blocks[i].populate(blocks[block_num])
+            self._populate_from_csvdata(csv.reader(csvfile))
+
+    def populate_from_csvstring(self, csvstring):
+        """
+        """
+        self._populate_from_csvdata(csv.reader(csvstring.split(os.linesep)))
 
     def _reduce_filter(self, lists, set_cells=False, unset_cells=False):
         """
@@ -100,8 +112,8 @@ class SudokuBoard(object):
         [ [2, None, 5], [1, None, None], [None, None, None] ] => [2, 5, 1]
         """
         cells = []
-        for l in lists:
-            for cell in l:
+        for a_list in lists:
+            for cell in a_list:
                 if set_cells:
                     if cell.number is not None:
                         cells.append(cell)
@@ -132,10 +144,6 @@ class SudokuBoard(object):
         Return all numbers remaining to be set in a board row (0-based).
         """
         return sorted(list(POSSIBLE_SET - set(self.row(row_num))))
-
-    # def row_empty_cells(self, row_num):
-    #     blocks = [self.blocks[(row_num / 3) * 3 + i] for i in range(3)]
-    #     block_row_cells = [block.row(row_num % 3, as_numbers=False) for block in blocks]
 
     def col(self, col_num, as_numbers=True, set_cells=True, unset_cells=True):
         """
@@ -244,6 +252,30 @@ class SudokuBoard(object):
                 if len(cell.possibles) == 1:
                     cell.number = cell.possibles[0]
                     cell.possibles = None
+
+    def filled(self):
+        """
+        Returns whether all cells are filled.
+        """
+        for block in self.blocks:
+            empty_cells = block.empty_cells()
+            if len(empty_cells) != 0:
+                return False
+        return True
+
+    def solved(self):
+        """
+        Returns whether a board has been completly filled with a valid solution.
+        """
+        if not self.filled():
+            return False
+
+        try:
+            self.verify()
+        except InvalidBoard:
+            return False
+
+        return True
 
     def next_moves(self):
         """
