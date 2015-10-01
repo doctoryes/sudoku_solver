@@ -13,6 +13,8 @@ class SudokuBlock(object):
     Rows are addressed as 0, 1, 2 for top, middle, and bottom rows respectively.
     Columns are addressed as 0, 1, 2 for left, middle, and right columns respectively.
     """
+    __slots__ = ['cells']
+
     def __init__(self, numbers=None):
         self.cells = [ SudokuCell() for __ in range(9) ]
         if numbers:
@@ -68,7 +70,7 @@ class SudokuBlock(object):
         """
         Returns a list of all numbers currently in the block.
         """
-        return [cell.number for cell in self.cells if cell.number is not None]
+        return [cell.number for cell in self.cells if not cell.empty ]
 
     def remaining(self):
         """
@@ -80,10 +82,22 @@ class SudokuBlock(object):
         """
         Returns a list of all empty SudokuCells.
         """
-        return [ cell for cell in self.cells if cell.number is None ]
+        return [ cell for cell in self.cells if cell.empty ]
 
     def __getitem__(self, index):
         return self.cells[index]
+
+    def __eq__(self, other):
+        """
+        Blocks are equal if each cell is equal.
+        """
+        for cell_num, cell in enumerate(self.cells):
+            if other[cell_num] != cell:
+                return False
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __unicode__(self):
         s = ""

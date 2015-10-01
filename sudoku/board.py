@@ -45,6 +45,7 @@ import unittest
 import csv
 from itertools import chain
 from collections import defaultdict
+from copy import deepcopy
 
 from cell import POSSIBLE_NUMBERS
 from block import SudokuBlock
@@ -53,12 +54,14 @@ from block import SudokuBlock
 class InvalidBoard(Exception):
     pass
 
+class CSVParseError(Exception):
+    pass
+
 
 class SudokuBoard(object):
     """
     An entire Sudoku board.
     """
-
     def __init__(self, block_nums=None):
         """
         Initialize the board.
@@ -81,11 +84,20 @@ class SudokuBoard(object):
         Populate an entire Sudoku board from CSV data.
         """
         blocks = defaultdict(list)
-        for row_num, row in enumerate(csvdata):
+        row_num = 0
+        for row in csvdata:
+            if len(row) == 0:
+                continue
+            if len(row) != 9:
+                raise CSVParseError(
+                    "Row number {} does not have 9 values - it has {} values. Row: {}".format(
+                    row_num, len(row), row
+                ))
             base_block_num = (row_num / 3) * 3
             blocks[base_block_num].extend(row[0:3])
             blocks[base_block_num + 1].extend(row[3:6])
             blocks[base_block_num + 2].extend(row[6:9])
+            row_num += 1
         for block_num in range(9):
             self.blocks[block_num].populate(blocks[block_num])
 
@@ -101,6 +113,10 @@ class SudokuBoard(object):
 
     def populate_from_csvstring(self, csvstring):
         """
+        Populate an entire Sudoku board from a multi-line string representing the contents
+        of a CSV file.
+        The string contains nine lines - each row of the Sudoku board with numbers where present
+        and blanks where no number is present, with numbers and blanks separated by commas.
         """
         self._populate_from_csvdata(csv.reader(csvstring.split(os.linesep)))
 
@@ -225,6 +241,20 @@ class SudokuBoard(object):
                 # Duplicate values in this column.
                 raise InvalidBoard('Column {} has duplicate values.\nBoard:\n{}'.format(i, self))
 
+    def set_obvious(self):
+        """
+        If any cells have only one possible number, set the cell to that number.
+        """
+        cells_set = False
+        for block in self.blocks:
+            empty_cells = block.empty_cells()
+            for cell in empty_cells:
+                if len(cell.possibles) == 1:
+                    cell.number = cell.possibles[0]
+                    cell.possibles = None
+                    cells_set = True
+        return cells_set
+
     def analyze(self):
         """
         Given a Sudoku board, update the possible numbers for each empty slot.
@@ -242,16 +272,11 @@ class SudokuBoard(object):
         # Using number elimination based on Sudoku rules, set possible values for each empty cell.
         self.set_possibles()
 
-    def set_obvious(self):
-        """
-        If any cells have only one possible number, set the cell to that number.
-        """
-        for block in self.blocks:
-            empty_cells = block.empty_cells()
-            for cell in empty_cells:
-                if len(cell.possibles) == 1:
-                    cell.number = cell.possibles[0]
-                    cell.possibles = None
+        # If any values are now obvious, set them and try again.
+        while self.set_obvious():
+            self.verify()
+            self.reset_possibles()
+            self.set_possibles()
 
     def filled(self):
         """
@@ -265,7 +290,7 @@ class SudokuBoard(object):
 
     def solved(self):
         """
-        Returns whether a board has been completly filled with a valid solution.
+        Returns whether a board has been completely filled with a valid solution.
         """
         if not self.filled():
             return False
@@ -282,10 +307,27 @@ class SudokuBoard(object):
         Return an iterator that yields SudokuBoard objects that represent
         all possible next moves in sequence.
         """
-        yield None
+        # Iterate over all the blocks and cells.
+        for block_num, block in enumerate(self.blocks):
+            for cell_num, cell in enumerate(block.cells):
+                if cell.empty:
+                    # For each cell's possible values, create a new board and yield it.
+                    for possible in cell.possibles:
+                        board_copy = deepcopy(self)
+                        board_copy[block_num][cell_num].number = possible
+                        yield board_copy
 
     def __getitem__(self, index):
         return self.blocks[index]
+
+    def __eq__(self, other):
+        """
+        Boards are equal when all blocks are equal.
+        """
+        for block_num, block in enumerate(self.blocks):
+            if other[block_num] != block:
+                return False
+        return True
 
     def __unicode__(self):
         board = ""
@@ -305,54 +347,4 @@ class SudokuBoard(object):
     def __repr__(self):
         return unicode(self)
 
-
-class TestSudokuBoard(unittest.TestCase):
-
-    def setUp(self):
-        self.board_nums = [
-            [
-                # http://www.websudoku.com/?level=1&set_id=6848832067
-                [None, 9, None, None, 5, None, 3, 6, 8],
-                [1, None, 6, 3, None, 7, 4, None, None],
-                [None, None, 2, None, 8, None, None, None, 1],
-                [None, 8, None, None, None, None, 6, None, None],
-                [None, 6, None, 7, 5, 3, None, 4, None],
-                [None, None, 9, None, None, None, None, 3, None],
-                [5, None, None, None, 2, None, 8, None, None],
-                [None, None, 2, 5, None, 8, 9, None, 4],
-                [8, 7, 4, None, 6, None, None, 2, None],
-            ],
-            [
-                [None, None, None, None, 1, None, 2, None, None],
-                [None, None, 4, None, 2, 8, 9, 5, None],
-                [9, None, None, None, 3, None, None, None, None],
-                [9, 2, None, None, 5, 6, None, None, 8],
-                [None, None, None, None, None, None, None, None, None],
-                [1, None, None, 4, 2, None, None, 5, 9],
-                [None, None, None, None, 6, None, None, None, 2],
-                [None, 8, 6, 5, 1, None, 7, None, None],
-                [None, None, 3, None, 7, None, None, None, None],
-            ]
-        ]
-
-
-    def test_empty_repr(self):
-        board = SudokuBoard()
-        self.assertEqual(unicode(board), '- - - | - - - | - - -\n- - - | - - - | - - -\n- - - | - - - | - - -\n------+-------+------\n- - - | - - - | - - -\n- - - | - - - | - - -\n- - - | - - - | - - -\n------+-------+------\n- - - | - - - | - - -\n- - - | - - - | - - -\n- - - | - - - | - - -\n')
-
-    # TODO: ddt these tests to check all param combinations.
-    def test_a_board(self):
-        board = SudokuBoard(self.board_nums[0])
-        self.assertEqual(board[4].row(1), [7, 5, 3])
-        self.assertEqual(board[7].col(2), [2, 8, 4])
-        self.assertEqual(board.row(5, unset_cells=False), [3, 4, 6])
-        self.assertEqual(board.col(5, unset_cells=False), [2, 3, 4, 6, 7, 8])
-
-    def test_possibles(self):
-        board = SudokuBoard(self.board_nums[1])
-        board.analyze()
-        self.assertItemsEqual(board[4][5].possibles, [1, 3, 7, 9])
-
-if __name__ == '__main__':
-    unittest.main()
 

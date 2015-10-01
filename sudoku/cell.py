@@ -11,6 +11,8 @@ class SudokuCell(object):
     """
     A single Sudoku cell.
     """
+    __slots__ = ['number', 'possibles']
+
     def __init__(self):
         # Filled-in number for cell. None means empty.
         self.number = None
@@ -36,6 +38,12 @@ class SudokuCell(object):
 
     def to_string(self):
         return '-' if self.empty else '{}'.format(self.number)
+
+    def __eq__(self, other):
+        return other.number == self.number
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
     def __repr__(self):
         if self.empty:
