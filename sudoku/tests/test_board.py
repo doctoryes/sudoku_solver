@@ -77,6 +77,7 @@ class TestSudokuBoard(unittest.TestCase):
         board2 = SudokuBoard(self.board_nums[1])
         board3 = SudokuBoard(self.board_nums[1])
         self.assertNotEqual(board1, board2)
+        self.assertNotEqual(board1, board3)
         self.assertEqual(board2, board3)
 
 
