@@ -72,6 +72,15 @@ class TestSudokuBoard(unittest.TestCase):
         self.assertEqual(board.row(5, unset_cells=False), [1, 2, 8])
         self.assertEqual(board.col(8, unset_cells=False), [1, 3, 4, 8, 9])
 
+    def test_board_load_from_brdfile(self):
+        board = SudokuBoard()
+        board.populate_from_brdfile(DATA_DIR / 'board1.brd')
+        self.assertEqual(board[4].row(1), [None, None, None])
+        self.assertEqual(board[2].row(2), [9, 4, 3])
+        self.assertEqual(board[2].col(2), [None, None, 3])
+        self.assertEqual(board.row(5, unset_cells=False), [1, 2, 8])
+        self.assertEqual(board.col(8, unset_cells=False), [1, 3, 4, 8, 9])
+
     def test_board_equality(self):
         board1 = SudokuBoard(self.board_nums[0])
         board2 = SudokuBoard(self.board_nums[1])

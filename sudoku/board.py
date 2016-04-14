@@ -54,7 +54,7 @@ from block import SudokuBlock
 class InvalidBoard(Exception):
     pass
 
-class CSVParseError(Exception):
+class BoardParseError(Exception):
     pass
 
 
@@ -79,17 +79,19 @@ class SudokuBoard(object):
         for i, one_block in enumerate(block_nums):
             self.blocks[i].populate(one_block)
 
-    def _populate_from_csvdata(self, csvdata):
+    def _populate_from_numdata(self, numdata):
         """
-        Populate an entire Sudoku board from CSV data.
+        Populate an entire Sudoku board from BRD line data.
         """
         blocks = defaultdict(list)
         row_num = 0
-        for row in csvdata:
+        for row in numdata:
+            if isinstance(row, basestring):
+                row = list(row.strip())
             if len(row) == 0:
                 continue
             if len(row) != 9:
-                raise CSVParseError(
+                raise BoardParseError(
                     "Row number {} does not have 9 values - it has {} values. Row: {}".format(
                     row_num, len(row), row
                 ))
@@ -109,7 +111,17 @@ class SudokuBoard(object):
         """
         with open(filename, 'rb') as csvfile:
             rows = csv.reader(csvfile)
-            self._populate_from_csvdata(csv.reader(csvfile))
+            self._populate_from_numdata(csv.reader(csvfile))
+
+    def populate_from_brdfile(self, filename):
+        """
+        Populate an entire Sudoku board from a BRD file.
+        The file contains nine lines - each row of the Sudoku board with numbers where present
+        and "-" where no number is present. Each line has 9 characters only.
+        """
+        with open(filename, 'r') as brdfile:
+            rows = brdfile.readlines()
+            self._populate_from_numdata(rows)
 
     def populate_from_csvstring(self, csvstring):
         """
@@ -118,7 +130,7 @@ class SudokuBoard(object):
         The string contains nine lines - each row of the Sudoku board with numbers where present
         and blanks where no number is present, with numbers and blanks separated by commas.
         """
-        self._populate_from_csvdata(csv.reader(csvstring.split(os.linesep)))
+        self._populate_from_numdata(csv.reader(csvstring.split(os.linesep)))
 
     def _reduce_filter(self, lists, set_cells=False, unset_cells=False):
         """

@@ -25,7 +25,7 @@ class SudokuBlock(object):
         """
         for i, x in enumerate(numbers):
             if isinstance(x, basestring):
-                if len(x):
+                if x.isdigit():
                     x = int(x)
                 else:
                     x = None
