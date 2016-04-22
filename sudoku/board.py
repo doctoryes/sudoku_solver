@@ -44,7 +44,7 @@ import os
 import unittest
 import csv
 from itertools import chain
-from collections import defaultdict
+from collections import defaultdict, Counter
 from copy import deepcopy
 
 from cell import POSSIBLE_NUMBERS
@@ -206,25 +206,65 @@ class SudokuBoard(object):
         # Go through each block, find remaining values, and reduce possible cell values.
         for block in self.blocks:
             values = block.numbers()
-            empty_cells = block.empty_cells()
-            for cell in empty_cells:
-                cell.eliminate_possibles(values)
+            values_set = set(values)
+            for cell in block.empty_cells():
+                cell.eliminate_possibles(values_set)
 
         # Go through each board row, ...
         for row_num in range(9):
             row_cells = self.row(row_num, as_numbers=False)
             row_values = [ cell.number for cell in row_cells if not cell.empty ]
-            empty_cells = [ cell for cell in row_cells if cell.empty ]
-            for cell in empty_cells:
-                cell.eliminate_possibles(row_values)
+            row_values_set = set(row_values)
+            for cell in row_cells:
+                if cell.empty:
+                    cell.eliminate_possibles(row_values_set)
 
         # Go through each board column, ...
         for col_num in range(9):
             col_cells = self.col(col_num, as_numbers=False)
             col_values = [ cell.number for cell in col_cells if not cell.empty ]
-            empty_cells = [ cell for cell in col_cells if cell.empty ]
-            for cell in empty_cells:
-                cell.eliminate_possibles(col_values)
+            col_values_set = set(col_values)
+            for cell in col_cells:
+                if cell.empty:
+                    cell.eliminate_possibles(col_values_set)
+
+        # If two/three/four cells have the same two/three/four possibles in a block/row/column,
+        # eliminate those possibles from the other cells' possibles in that block/row/column.
+        possibles_count = Counter()
+        for block in self.blocks:
+            possibles_count.clear()
+            for cell in block.empty_cells():
+                possibles_count[tuple(cell.possibles)] += 1
+            for possibles, cnt in possibles_count.iteritems():
+                if len(possibles) == cnt:
+                    for cell in block.empty_cells():
+                        if list(possibles) != cell.possibles:
+                            cell.eliminate_possibles(set(possibles))
+
+        for row_num in range(9):
+            possibles_count.clear()
+            row_cells = self.row(row_num, as_numbers=False)
+            for cell in row_cells:
+                if cell.empty:
+                    possibles_count[tuple(cell.possibles)] += 1
+            for possibles, cnt in possibles_count.iteritems():
+                if len(possibles) == cnt:
+                    for cell in row_cells:
+                        if cell.empty and list(possibles) != cell.possibles:
+                            cell.eliminate_possibles(set(possibles))
+
+        for col_num in range(9):
+            possibles_count.clear()
+            col_cells = self.col(col_num, as_numbers=False)
+            for cell in col_cells:
+                if cell.empty:
+                    possibles_count[tuple(cell.possibles)] += 1
+            for possibles, cnt in possibles_count.iteritems():
+                if len(possibles) == cnt:
+                    for cell in col_cells:
+                        if cell.empty and list(possibles) != cell.possibles:
+                            cell.eliminate_possibles(set(possibles))
+
 
     def verify(self):
         """
