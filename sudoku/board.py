@@ -132,6 +132,15 @@ class SudokuBoard(object):
         """
         self._populate_from_numdata(csv.reader(csvstring.split(os.linesep)))
 
+    def populate_from_brdstring(self, brdstring):
+        """
+        Populate an entire Sudoku board from a multi-line string representing the contents
+        of a CSV file.
+        The file contains nine lines - each row of the Sudoku board with numbers where present
+        and "-" where no number is present. Each line has 9 characters only.
+        """
+        self._populate_from_numdata(brdstring)
+
     def _reduce_filter(self, lists, set_cells=False, unset_cells=False):
         """
         Reduces multiple lists of SudokuCells to a single list of SudokuCells.
