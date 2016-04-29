@@ -1,7 +1,8 @@
 
 import unittest
+import copy
 from path import Path as path
-from sudoku.board import SudokuBoard
+from sudoku.board import SudokuBoard, InvalidBoard
 
 DATA_DIR = path(__file__).dirname()
 
@@ -33,6 +34,41 @@ class TestSudokuBoard(unittest.TestCase):
                 [None, None, 3, None, 7, None, None, None, None],
             ]
         ]
+        self.brd_nums = [
+"""
+519643--7
+736--5--4
+284-1-695
+--8----6-
+-6--7--1-
+-9----5--
+873-5---9
+6--9--7--
+1---3---6
+""",
+"""
+2-3--4-7-
+19-73-8--
+-7--2-943
+96------8
+--2---5--
+8------21
+539-4--1-
+--8-17-59
+-1-3--2-4
+""",
+"""
+------175
+-9-735862
+---821943
+96-572438
+342186597
+857493621
+539248716
+-28617359
+716359284
+""",
+        ]
 
 
     def test_empty_repr(self):
@@ -52,34 +88,36 @@ class TestSudokuBoard(unittest.TestCase):
         board.analyze()
         self.assertItemsEqual(board[4][5].possibles, [1, 3, 7, 9])
 
-    def test_board_load_from_csvfile(self):
-        board = SudokuBoard()
-        board.populate_from_csvfile(DATA_DIR / 'board1.csv')
+    def _verify_board(self, board):
         self.assertEqual(board[4].row(1), [None, None, None])
         self.assertEqual(board[2].row(2), [9, 4, 3])
         self.assertEqual(board[2].col(2), [None, None, 3])
         self.assertEqual(board.row(5, unset_cells=False), [1, 2, 8])
         self.assertEqual(board.col(8, unset_cells=False), [1, 3, 4, 8, 9])
+
+    def test_board_load_from_csvfile(self):
+        board = SudokuBoard()
+        board.populate_from_csvfile(DATA_DIR / 'board1.csv')
+        self._verify_board(board)
 
     def test_board_load_from_csvstring(self):
         board = SudokuBoard()
         with open(DATA_DIR / 'board1.csv', 'rb') as csvfile:
             csvstring = csvfile.read()
         board.populate_from_csvstring(csvstring)
-        self.assertEqual(board[4].row(1), [None, None, None])
-        self.assertEqual(board[2].row(2), [9, 4, 3])
-        self.assertEqual(board[2].col(2), [None, None, 3])
-        self.assertEqual(board.row(5, unset_cells=False), [1, 2, 8])
-        self.assertEqual(board.col(8, unset_cells=False), [1, 3, 4, 8, 9])
+        self._verify_board(board)
 
     def test_board_load_from_brdfile(self):
         board = SudokuBoard()
         board.populate_from_brdfile(DATA_DIR / 'board1.brd')
-        self.assertEqual(board[4].row(1), [None, None, None])
-        self.assertEqual(board[2].row(2), [9, 4, 3])
-        self.assertEqual(board[2].col(2), [None, None, 3])
-        self.assertEqual(board.row(5, unset_cells=False), [1, 2, 8])
-        self.assertEqual(board.col(8, unset_cells=False), [1, 3, 4, 8, 9])
+        self._verify_board(board)
+
+    def test_board_load_from_brdstring(self):
+        board = SudokuBoard()
+        with open(DATA_DIR / 'board1.brd', 'r') as brdfile:
+            brdstring = brdfile.readlines()
+        board.populate_from_brdstring(brdstring)
+        self._verify_board(board)
 
     def test_board_equality(self):
         board1 = SudokuBoard(self.board_nums[0])
@@ -88,6 +126,37 @@ class TestSudokuBoard(unittest.TestCase):
         self.assertNotEqual(board1, board2)
         self.assertNotEqual(board1, board3)
         self.assertEqual(board2, board3)
+        self.assertTrue(board2 in [board3])
+
+    def test_board_analyze_invalid(self):
+        board = SudokuBoard()
+        board.populate_from_brdstring(self.brd_nums[0].split('\n'))
+        with self.assertRaises(InvalidBoard):
+            board.analyze()
+
+    def test_board_deepcopy(self):
+        board = SudokuBoard(self.board_nums[0])
+        # Ensure that a deepcopy can be done without raising an exception.
+        board_copy = copy.deepcopy(board)
+
+    def test_set_possibles(self):
+        board = SudokuBoard()
+        board.populate_from_brdstring(self.brd_nums[2].split('\n'))
+        board.reset_possibles()
+        board.set_possibles()
+        self.assertEqual(board[0][0].possibles, [2])
+        self.assertEqual(board[0][1].possibles, [8])
+        self.assertEqual(board[0][2].possibles, [3])
+        self.assertEqual(board[0][3].possibles, [1])
+        self.assertEqual(board[0][5].possibles, [4])
+        self.assertEqual(board[0][6].possibles, [6])
+        self.assertEqual(board[0][7].possibles, [7])
+        self.assertEqual(board[0][8].possibles, [5])
+        self.assertEqual(board[1][0].possibles, [9])
+        self.assertEqual(board[1][1].possibles, [6])
+        self.assertEqual(board[1][2].possibles, [4])
+        self.assertEqual(board[3][2].possibles, [1])
+        self.assertEqual(board[6][3].possibles, [4])
 
 
 if __name__ == '__main__':
